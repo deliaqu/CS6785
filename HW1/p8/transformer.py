@@ -35,13 +35,61 @@ class TransformerBlock(nn.Module):
         nn.init.constant_(self.w2.bias, 0.0)
 
     def forward(self, x, mask):
+
         seq_len, batch_size, embed_dim = x.shape
 
-        # Hint: Writing efficient code is almost as important as writing correct code in ML.
-        #       Avoid writing for-loops! Consider using the batch matrix multiplication operator torch.bmm
-        raise NotImplementedError('Implement a transformer block')
+        # --- Multi-Head Self-Attention ---
+
+        # 1. Project x into Q, K, V
+        Q = self.wq(x)  # (seq_len, batch_size, heads*k)
+        K = self.wk(x)  # (seq_len, batch_size, heads*k)
+        V = self.wv(x)  # (seq_len, batch_size, heads*k)
+
+        # 2. Reshape to split heads
+        #    New shape: (seq_len, batch_size, heads, k) -> permute -> (batch_size*heads, seq_len, k)
+        Q = Q.view(seq_len, batch_size, self.heads, self.k).permute(1, 2, 0, 3).reshape(batch_size*self.heads, seq_len, self.k)
+        K = K.view(seq_len, batch_size, self.heads, self.k).permute(1, 2, 0, 3).reshape(batch_size*self.heads, seq_len, self.k)
+        V = V.view(seq_len, batch_size, self.heads, self.k).permute(1, 2, 0, 3).reshape(batch_size*self.heads, seq_len, self.k)
+
+        # 3. Scaled dot-product attention: (batch_size*heads, seq_len, seq_len)
+        attn_scores = torch.bmm(Q, K.transpose(1, 2)) / math.sqrt(self.k)
+
+        # 4. Apply the mask (broadcasts across the first dimension)
+        #    mask is (seq_len, seq_len), attn_scores is (batch_size*heads, seq_len, seq_len)
+        attn_scores += mask
+
+        # 5. Softmax over the last dimension, then dropout
+        attn_weights = F.softmax(attn_scores, dim=-1)
+        attn_weights = self.dropoutatt(attn_weights)
+
+        # 6. Multiply by V to get the output
+        attn_out = torch.bmm(attn_weights, V)  # (batch_size*heads, seq_len, k)
+
+        # 7. Reshape back to (seq_len, batch_size, heads*k)
+        attn_out = attn_out.view(batch_size, self.heads, seq_len, self.k)
+        attn_out = attn_out.permute(2, 0, 1, 3).reshape(seq_len, batch_size, self.heads * self.k)
+
+        # 8. Final linear projection back to d dimensions
+        attn_out = self.wc(attn_out)
+
+        # 9. Skip connection + LayerNorm
+        x = x + self.dropout1(attn_out)
+        x = self.layernorm1(x)
+
+        # --- Position-wise Feed-Forward ---
+
+        ff = self.w1(x)         # (seq_len, batch_size, m)
+        ff = F.relu(ff)         # non-linearity
+        ff = self.dropoutfc(ff) # dropout
+        ff = self.w2(ff)        # (seq_len, batch_size, d)
+        ff = self.dropout2(ff)
+
+        #  Skip connection + LayerNorm
+        out = x + ff
+        out = self.layernorm2(out)
 
         return out
+
 
 class Transformer(nn.Module):
     def __init__(self, seq_len, tokens, d, k, m, heads, layers, tied_weights=False, dropout=0., dropoutio=0.):
