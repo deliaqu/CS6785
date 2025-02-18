@@ -9,13 +9,16 @@ def generate_data(n_samples, means, cov):
     ])
     return data
 
-def plot_data(data, title, mus=None):
+def plot_data(data, title, mus=None, output_file=None):
     plt.scatter(data[:, 0], data[:, 1], alpha=0.5, s=10)
     if mus is not None:
         plt.scatter(mus[:, 0].detach().numpy(), mus[:, 1].detach().numpy(), c='red', marker='x', s=100, label='Estimated Means')
         plt.legend()
     plt.title(title)
     plt.show()
+
+    if output_file is not None:
+        plt.savefig(output_file)
 
 def log_likelihood(data, mus):
     distributions = [MultivariateNormal(mu, torch.eye(2)) for mu in mus]
@@ -71,12 +74,15 @@ def em(data, em_mus, em_pi, n_iterations):
         em_log_likelihoods.append(ll.item()/data.size(0))
     return em_log_likelihoods
 
-def plot_log_likelihood(log_likelihoods):
+def plot_log_likelihood(log_likelihoods, output_file=None):
     plt.plot(range(len(log_likelihoods)), log_likelihoods, marker='o')
     plt.xlabel("Iteration")
     plt.ylabel("Log-Likelihood")
     plt.title("Log-Likelihood Progression")
     plt.show()
+
+    if output_file is not None:
+        plt.savefig(output_file)
 
 def main():
     np.random.seed(42)
@@ -89,7 +95,7 @@ def main():
     cov = np.eye(2)
 
     data = generate_data(n_samples, means, cov)
-    plot_data(data, "Scatter plot of sampled data from GMM")
+    plot_data(data, "Scatter plot of sampled data from GMM", output_file="data.png")
 
     data_tensor = torch.tensor(data, dtype=torch.float32)
     torch.manual_seed(42)
@@ -99,8 +105,8 @@ def main():
     ga_learning_rate = 1e-3
 
     log_likelihoods = gradient_ascent(data_tensor, mus, ga_n_iterations, ga_learning_rate)
-    plot_log_likelihood(log_likelihoods)
-    plot_data(data, "Final estimated means using gradient ascent", mus)
+    plot_log_likelihood(log_likelihoods, output_file="log_likelihood_ga.png")
+    plot_data(data, "Final estimated means using gradient ascent", mus, output_file="final_estimated_means_ga.png")
     print("Final estimated means using gradient ascent:", mus.detach().numpy())
 
     sgd_n_iterations = 5000
@@ -109,8 +115,8 @@ def main():
     sgd_mus = torch.nn.Parameter(torch.randn(3, 2))
 
     sgd_log_likelihoods = sgd(data_tensor, sgd_mus, sgd_n_iterations, sgd_learning_rate, batch_size)
-    plot_log_likelihood(sgd_log_likelihoods)
-    plot_data(data, "Final estimated means using sgd", sgd_mus)
+    plot_log_likelihood(sgd_log_likelihoods, output_file="log_likelihood_sgd.png")
+    plot_data(data, "Final estimated means using sgd", sgd_mus, output_file="final_estimated_means_sgd.png")
     print("Final estimated means using sgd:", sgd_mus.detach().numpy())
 
 
@@ -118,8 +124,8 @@ def main():
     em_pi = torch.nn.Parameter(torch.tensor([1/3, 1/3, 1/3], dtype=torch.float32))
     em_mus = torch.nn.Parameter(torch.randn(3, 2))
     em_log_likelihoods = em(data_tensor, em_mus, em_pi, em_n_iterations)
-    plot_log_likelihood(em_log_likelihoods)
-    plot_data(data, "Final estimated means using EM", em_mus)
+    plot_log_likelihood(em_log_likelihoods, output_file="log_likelihood_em.png")
+    plot_data(data, "Final estimated means using EM", em_mus, output_file="final_estimated_means_em.png")
     print("Final estimated means using EM:", em_mus.detach().numpy())
 
 if __name__ == "__main__":
