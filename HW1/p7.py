@@ -22,6 +22,9 @@ def plot_data(data, title, mus=None, output_file=None):
     plt.show()
     plt.close()
 
+    if output_file is not None:
+        plt.savefig(output_file)
+
 def log_likelihood(data, mus):
     distributions = [MultivariateNormal(mu, torch.eye(2)) for mu in mus]
     log_probs = torch.stack([dist.log_prob(data) for dist in distributions], dim=1)
@@ -87,6 +90,9 @@ def plot_log_likelihood(log_likelihoods, output_file=None):
 
     plt.show()
     plt.close()
+
+    if output_file is not None:
+        plt.savefig(output_file)
 
 def main():
     np.random.seed(42)
