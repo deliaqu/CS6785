@@ -26,9 +26,9 @@ class BinarizedMNIST(data.Dataset):
             raise RuntimeError('Dataset not found.')
 
         if self.train:
-            self.data = torch.load(os.path.join(self.root, self.training_file))
+            self.data = torch.load(os.path.join(self.root, self.training_file), weights_only=False)
         else:
-            self.data = torch.load(os.path.join(self.root, self.test_file))
+            self.data = torch.load(os.path.join(self.root, self.test_file), weights_only=False)
 
     def __getitem__(self, index):
         """
