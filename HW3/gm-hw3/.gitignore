@@ -1,0 +1,5 @@
+*tar.gz
+*.png
+*.pt
+__pycache__/*
+data/*
